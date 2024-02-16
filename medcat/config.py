@@ -1,8 +1,7 @@
 from datetime import datetime
-from pydantic import BaseModel, Extra, ValidationError
-from pydantic.dataclasses import Any, Callable, Dict, Optional, Union
-from pydantic.fields import ModelField
-from typing import List, Set, Tuple, cast
+from pydantic import BaseModel, ValidationError
+from pydantic.fields import FieldInfo
+from typing import List, Set, Tuple, cast, Any, Callable, Dict, Optional, Union
 from multiprocessing import cpu_count
 import logging
 import jsonpickle
@@ -121,7 +120,7 @@ class MixingConfig(FakeDict):
                 attr = None # new attribute
             value = config_dict[key]
             if isinstance(value, BaseModel):
-                value = value.dict()
+                value = value.model_dump()
             if isinstance(attr, MixingConfig):
                 attr.merge_config(value)
             else:
@@ -170,7 +169,7 @@ class MixingConfig(FakeDict):
     def _calc_hash(self, hasher: Optional[Hasher] = None) -> Hasher:
         if hasher is None:
             hasher = Hasher()
-        for _, v in cast(BaseModel, self).dict().items():
+        for _, v in cast(BaseModel, self).model_dump().items():
             if isinstance(v, MixingConfig):
                 v._calc_hash(hasher)
             else:
@@ -182,7 +181,7 @@ class MixingConfig(FakeDict):
         return hasher.hexdigest()
 
     def __str__(self) -> str:
-        return str(cast(BaseModel, self).dict())
+        return str(cast(BaseModel, self).model_dump())
 
     @classmethod
     def load(cls, save_path: str) -> "MixingConfig":
@@ -226,15 +225,15 @@ class MixingConfig(FakeDict):
         Returns:
             Dict[str, Any]: The dictionary associated with this config
         """
-        return cast(BaseModel, self).dict()
+        return cast(BaseModel, self).model_dump()
 
-    def fields(self) -> Dict[str, ModelField]:
+    def fields(self) -> Dict[str, FieldInfo]:
         """Get the fields associated with this config.
 
         Returns:
-            Dict[str, Field]: The dictionary of the field names and fields
+            Dict[str, FieldInfo]: The dictionary of the field names and fields
         """
-        return cast(BaseModel, self).__fields__
+        return cast(BaseModel, self).model_fields
 
 
 class VersionInfo(MixingConfig, BaseModel):
@@ -260,7 +259,7 @@ class VersionInfo(MixingConfig, BaseModel):
     """Which version of medcat was used to build the CDB"""
 
     class Config:
-        extra = Extra.allow
+        extra = 'allow'
         validate_assignment = True
 
 
@@ -278,7 +277,7 @@ class CDBMaker(MixingConfig, BaseModel):
     """Minimum number of letters required in a name to be accepted for a concept"""
 
     class Config:
-        extra = Extra.allow
+        extra = 'allow'
         validate_assignment = True
 
 
@@ -291,7 +290,7 @@ class AnnotationOutput(MixingConfig, BaseModel):
     include_text_in_output: bool = False
 
     class Config:
-        extra = Extra.allow
+        extra = 'allow'
         validate_assignment = True
 
 
@@ -305,7 +304,7 @@ class CheckPoint(MixingConfig, BaseModel):
     """When training the maximum checkpoints will be kept on the disk"""
 
     class Config:
-        extra = Extra.allow
+        extra = 'allow'
         validate_assignment = True
 
 
@@ -350,7 +349,7 @@ class General(MixingConfig, BaseModel):
     """If the cdb.addl_info['cui2group'] is provided and this option enabled, each CUI will be maped to the group"""
 
     class Config:
-        extra = Extra.allow
+        extra = 'allow'
         validate_assignment = True
 
 
@@ -375,7 +374,7 @@ class Preprocessing(MixingConfig, BaseModel):
     """Documents longer  than this will be trimmed"""
 
     class Config:
-        extra = Extra.allow
+        extra = 'allow'
         validate_assignment = True
 
 
@@ -395,7 +394,7 @@ class Ner(MixingConfig, BaseModel):
     """Try reverse word order for short concepts (2 words max), e.g. heart disease -> disease heart"""
 
     class Config:
-        extra = Extra.allow
+        extra = 'allow'
         validate_assignment = True
 
 
@@ -533,7 +532,7 @@ class Linking(MixingConfig, BaseModel):
     """If true when the context of a concept is calculated (embedding) the words making that concept are not taken into accout"""
 
     class Config:
-        extra = Extra.allow
+        extra = 'allow'
         validate_assignment = True
 
 
@@ -554,7 +553,7 @@ class Config(MixingConfig, BaseModel):
         # this if for word_skipper and punct_checker which would otherwise
         # not have a validator
         arbitrary_types_allowed = True
-        extra = Extra.allow
+        extra = 'allow'
         validate_assignment = True
 
     def __init__(self, *args, **kwargs):
@@ -572,7 +571,7 @@ class Config(MixingConfig, BaseModel):
     # Override
     def get_hash(self):
         hasher = Hasher()
-        for k, v in self.dict().items():
+        for k, v in self.model_dump().items():
             if k in ['hash', ]:
                 # ignore hash
                 continue
